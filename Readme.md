@@ -1,5 +1,7 @@
 ## redis.go
 
+[![Build Status](https://drone.io/github.com/shxsun/redis/status.png)](https://drone.io/github.com/shxsun/redis/latest)
+
 redis.go is a client for the [redis](http://github.com/antirez/redis) key-value store. 
 
 Some features include:
