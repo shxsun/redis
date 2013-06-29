@@ -193,7 +193,6 @@ func (client *Client) sendCommand(cmd string, args ...string) (data interface{},
 	var b []byte
 	c, err := client.popCon()
 	if err != nil {
-		println(err.Error())
 		goto End
 	}
 
@@ -1384,35 +1383,4 @@ func (client *Client) Bgrewriteaof() error {
 		return err
 	}
 	return nil
-}
-
-// panic if err is not nil
-func checkError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-// convert []byte to string
-func MustString(data []byte, err error) string {
-	checkError(err)
-	return string(data)
-}
-
-// convert [][]byte to string list
-func MustStrings(data [][]byte, err error) []string {
-	checkError(err)
-	ret := make([]string, 0, len(data))
-	for _, d := range data {
-		ret = append(ret, string(d))
-	}
-	return ret
-}
-
-// convert []byte to int
-func MustInt(data []byte, err error) int {
-	checkError(err)
-	n, err := strconv.Atoi(string(data))
-	checkError(err)
-	return n
 }

@@ -77,8 +77,25 @@ func main() {
     close(sub)
     close(messages)
 
-
 More examples coming soon. See `redis_test.go` for more usage examples.
+
+### Redis Helper
+	for easy use of redis, convert []byte data to (int, string, []string ...)
+
+	var client redis.Client
+	var err error
+	defer func() {
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	err = client.Set("hi", []byte(strconv.Itoa(123)))
+	if err != nil {
+		return
+	}
+	n := redis.MustInt(client.Get("hi"))
+	fmt.Println(n)
 
 ## Commands not supported yet
 
