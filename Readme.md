@@ -80,7 +80,7 @@ func main() {
 More examples coming soon. See `redis_test.go` for more usage examples.
 
 ### Redis Helper
-	for easy use of redis, convert []byte data to (int, string, []string ...)
+for easy use of redis, convert []byte data to (int, string, []string ...)
 
 	var client redis.Client
 	var err error
