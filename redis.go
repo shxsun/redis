@@ -14,15 +14,16 @@ import (
 )
 
 const (
-	MaxPoolSize = 5
+	defaultPoolSize = 5
 )
 
 var defaultAddr = "127.0.0.1:6379"
 
 type Client struct {
-	Addr     string
-	Db       int
-	Password string
+	Addr        string
+	Db          int
+	Password    string
+	MaxPoolSize int
 	//the connection pool
 	pool chan net.Conn
 }
@@ -76,9 +77,10 @@ func writeRequest(writer io.Writer, cmd string, args ...string) error {
 }
 
 func commandBytes(cmd string, args ...string) []byte {
-	cmdbuf := bytes.NewBufferString(fmt.Sprintf("*%d\r\n$%d\r\n%s\r\n", len(args)+1, len(cmd), cmd))
+	var cmdbuf bytes.Buffer
+	fmt.Fprintf(&cmdbuf, "*%d\r\n$%d\r\n%s\r\n", len(args)+1, len(cmd), cmd)
 	for _, s := range args {
-		cmdbuf.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(s), s))
+		fmt.Fprintf(&cmdbuf, "$%d\r\n%s\r\n", len(s), s)
 	}
 	return cmdbuf.Bytes()
 }
@@ -169,7 +171,7 @@ func (client *Client) openConnection() (c net.Conn, err error) {
 		return
 	}
 
-	// handle authentication here
+	//handle authentication here authored by @shxsun
 	if client.Password != "" {
 		cmd := fmt.Sprintf("AUTH %s\r\n", client.Password)
 		_, err = client.rawSend(c, []byte(cmd))
@@ -177,6 +179,7 @@ func (client *Client) openConnection() (c net.Conn, err error) {
 			return
 		}
 	}
+
 	if client.Db != 0 {
 		cmd := fmt.Sprintf("SELECT %d\r\n", client.Db)
 		_, err = client.rawSend(c, []byte(cmd))
@@ -222,6 +225,7 @@ func (client *Client) sendCommands(cmdArgs <-chan []string, data chan<- interfac
 	var reader *bufio.Reader
 	var pong interface{}
 	var errs chan error
+	var errsClosed = false
 
 	if err != nil {
 		goto End
@@ -257,23 +261,33 @@ func (client *Client) sendCommands(cmdArgs <-chan []string, data chan<- interfac
 		for cmdArg := range cmdArgs {
 			err = writeRequest(c, cmdArg[0], cmdArg[1:]...)
 			if err != nil {
-				errs <- err
+				if !errsClosed {
+					errs <- err
+				}
 				break
 			}
 		}
-		close(errs)
+		if !errsClosed {
+			errsClosed = true
+			close(errs)
+		}
 	}()
 
 	go func() {
 		for {
 			response, err := readResponse(reader)
 			if err != nil {
-				errs <- err
+				if !errsClosed {
+					errs <- err
+				}
 				break
 			}
 			data <- response
 		}
-		close(errs)
+		if !errsClosed {
+			errsClosed = true
+			close(errs)
+		}
 	}()
 
 	// Block until errs channel closes
@@ -294,8 +308,12 @@ End:
 
 func (client *Client) popCon() (net.Conn, error) {
 	if client.pool == nil {
-		client.pool = make(chan net.Conn, MaxPoolSize)
-		for i := 0; i < MaxPoolSize; i++ {
+		poolSize := client.MaxPoolSize
+		if poolSize == 0 {
+			poolSize = defaultPoolSize
+		}
+		client.pool = make(chan net.Conn, poolSize)
+		for i := 0; i < poolSize; i++ {
 			//add dummy values to the pool
 			client.pool <- nil
 		}
